@@ -32,6 +32,11 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Model
         public string Name { get; set; }
 
         /// <summary>
+        /// The internal name of the Content Type
+        /// </summary>
+        public string InternalName { get; set; }
+
+        /// <summary>
         /// The description of the Content Type
         /// </summary>
         public string Description { get; set; }
@@ -103,11 +108,12 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Model
             _fieldRefs = new FieldRefCollection(this.ParentTemplate);
         }
 
-        public ContentType(string id, string name, string description, string group, bool contenttypeSealed, bool hidden, bool readyonly, string documentTemplate, bool overwrite, IEnumerable<FieldRef> fieldRefs):
+        public ContentType(string id, string name, string internalName, string description, string group, bool contenttypeSealed, bool hidden, bool readyonly, string documentTemplate, bool overwrite, IEnumerable<FieldRef> fieldRefs) :
             this()
         {
             this.Id = id;
             this.Name = name;
+            this.InternalName = internalName;
             this.Description = description;
             this.Group = group;
             this.Hidden = hidden;
@@ -127,6 +133,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Model
             return (String.Format("{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}|",
                 (this.Id != null ? this.Id.GetHashCode() : 0),
                 (this.Name != null ? this.Name.GetHashCode() : 0),
+                (this.InternalName != null ? this.InternalName.GetHashCode() : 0),
                 (this.Description != null ? this.Description.GetHashCode() : 0),
                 (this.Group != null ? this.Group.GetHashCode() : 0),
                 this.Hidden.GetHashCode(),
@@ -157,6 +164,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Model
 
             return (this.Id == other.Id &&
                     this.Name == other.Name &&
+                    this.InternalName == other.InternalName &&
                     this.Description == other.Description &&
                     this.Group == other.Group &&
                     this.Hidden == other.Hidden &&

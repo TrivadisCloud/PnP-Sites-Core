@@ -1388,6 +1388,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml
                     select new ContentType(
                         contentType.ID,
                         contentType.Name,
+                        contentType.InternalName,
                         contentType.Description,
                         contentType.Group,
                         contentType.Sealed,

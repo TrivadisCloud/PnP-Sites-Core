@@ -228,11 +228,16 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             List<Microsoft.SharePoint.Client.ContentType> existingCTs = null, List<Microsoft.SharePoint.Client.Field> existingFields = null)
         {
             var name = parser.ParseString(templateContentType.Name);
+            var internalName = parser.ParseString(templateContentType.InternalName);
             var description = parser.ParseString(templateContentType.Description);
             var id = parser.ParseString(templateContentType.Id);
             var group = parser.ParseString(templateContentType.Group);
 
-            var createdCT = web.CreateContentType(name, description, id, group);
+            Microsoft.SharePoint.Client.ContentType createdCT = null;
+            if (string.IsNullOrEmpty(internalName))
+                createdCT = web.CreateContentType(name, description, id, group);
+            else
+                createdCT = web.CreateContentType(internalName, description, id, group);
             foreach (var fieldRef in templateContentType.FieldRefs)
             {
                 var field = web.Fields.GetById(fieldRef.Id);
@@ -281,6 +286,14 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 
             createdCT.Update(true);
             web.Context.ExecuteQueryRetry();
+
+            if (!string.IsNullOrEmpty(internalName))
+            {
+                //There was an internal name specified, so we have to update with the right name
+                createdCT.Name = name;
+                createdCT.Update(true);
+                web.Context.ExecuteQueryRetry();
+            }
 
             // If the CT is a DocumentSet
             if (templateContentType.DocumentSetTemplate != null)
@@ -380,6 +393,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     ContentType newCT = new ContentType
                         (ct.StringId,
                         ct.Name,
+                        null,
                         ct.Description,
                         ct.Group,
                         ct.Sealed,

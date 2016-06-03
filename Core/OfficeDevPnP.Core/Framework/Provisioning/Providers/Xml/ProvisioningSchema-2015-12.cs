@@ -2917,7 +2917,9 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml.V201512 {
         private string idField;
         
         private string nameField;
-        
+
+        private string internalNameField;
+
         private string descriptionField;
         
         private string groupField;
@@ -2995,6 +2997,17 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml.V201512 {
             }
             set {
                 this.nameField = value;
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string InternalName {
+            get {
+                return this.internalNameField;
+            }
+            set {
+                this.internalNameField = value;
             }
         }
         
