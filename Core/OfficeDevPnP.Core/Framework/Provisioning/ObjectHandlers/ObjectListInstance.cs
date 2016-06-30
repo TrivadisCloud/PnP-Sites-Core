@@ -242,7 +242,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                         foreach (var view in list.Views)
                         {
 
-                            CreateView(web, view, existingViews, createdList, scope);
+                            CreateView(web, view, existingViews, createdList, parser, scope);
 
                         }
 
@@ -296,7 +296,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             return parser;
         }
 
-        private void CreateView(Web web, View view, Microsoft.SharePoint.Client.ViewCollection existingViews, List createdList, PnPMonitoredScope monitoredScope)
+        private void CreateView(Web web, View view, Microsoft.SharePoint.Client.ViewCollection existingViews, List createdList, TokenParser parser, PnPMonitoredScope monitoredScope)
         {
             try
             {
@@ -309,7 +309,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 }
 
                 monitoredScope.LogDebug(CoreResources.Provisioning_ObjectHandlers_ListInstances_Creating_view__0_, displayNameElement.Value);
-                var existingView = existingViews.FirstOrDefault(v => v.Title == displayNameElement.Value);
+                var existingView = existingViews.FirstOrDefault(v => v.Title == parser.ParseString(displayNameElement.Value));
 
                 if (existingView != null)
                 {
@@ -317,7 +317,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     web.Context.ExecuteQueryRetry();
                 }
 
-                var viewTitle = displayNameElement.Value;
+                var viewTitle = parser.ParseString(displayNameElement.Value);
 
                 // Type
                 var viewTypeString = viewElement.Attribute("Type") != null ? viewElement.Attribute("Type").Value : "None";
@@ -387,6 +387,10 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     createdView.Title = viewTitle;
                     createdView.Update();
                 }
+
+#if !ONPREMISES
+                //TODO Set TitleResource when it becomes available in CSOM
+#endif
 
                 // ContentTypeID
                 var contentTypeID = viewElement.Attribute("ContentTypeID") != null ? viewElement.Attribute("ContentTypeID").Value : null;
@@ -738,9 +742,9 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                         isDirty = true;
                     }
                 }
-                if (!string.IsNullOrEmpty(templateList.Description) && templateList.Description != existingList.Description)
+                if (!string.IsNullOrEmpty(templateList.Description) && parser.ParseString(templateList.Description) != existingList.Description)
                 {
-                    existingList.Description = templateList.Description;
+                    existingList.Description = parser.ParseString(templateList.Description);
                     isDirty = true;
                 }
                 if (templateList.Hidden != existingList.Hidden)
@@ -782,6 +786,13 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 if (templateList.Title.ContainsResourceToken())
                 {
                     if (existingList.TitleResource.SetUserResourceValue(templateList.Title, parser))
+                    {
+                        isDirty = true;
+                    }
+                }
+                if (templateList.Description.ContainsResourceToken())
+                {
+                    if (existingList.DescriptionResource.SetUserResourceValue(templateList.Description, parser))
                     {
                         isDirty = true;
                     }
@@ -922,14 +933,14 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                                               l => l.Description);
                 web.Context.ExecuteQueryRetry();
                 var isDirty = false;
-                if (!string.Equals(createdList.Description, list.Description))
+                if (!string.Equals(createdList.Description, parser.ParseString(list.Description)))
                 {
-                    createdList.Description = list.Description;
+                    createdList.Description = parser.ParseString(list.Description);
                     isDirty = true;
                 }
-                if (!string.Equals(createdList.Title, list.Title))
+                if (!string.Equals(createdList.Title, parser.ParseString(list.Title)))
                 {
-                    createdList.Title = list.Title;
+                    createdList.Title = parser.ParseString(list.Title);
                     isDirty = true;
                 }
                 if (isDirty)
@@ -942,7 +953,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             else
             {
                 var listCreate = new ListCreationInformation();
-                listCreate.Description = list.Description;
+                listCreate.Description = parser.ParseString(list.Description);
                 listCreate.TemplateType = list.TemplateType;
                 listCreate.Title = parser.ParseString(list.Title);
 
