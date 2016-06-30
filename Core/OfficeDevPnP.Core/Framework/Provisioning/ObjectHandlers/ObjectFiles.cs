@@ -60,9 +60,9 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                             scope.LogDebug(CoreResources.Provisioning_ObjectHandlers_Files_Uploading_and_overwriting_existing_file__0_, file.Src);
                             checkedOut = CheckOutIfNeeded(web, targetFile);
 
-                            using (var stream = template.Connector.GetFileStream(file.Src))
+                            using (var stream = GetFileStream(template, file))
                             {
-                                targetFile = folder.UploadFile(template.Connector.GetFilenamePart(file.Src), stream, file.Overwrite);
+                                targetFile = UploadFile(template, file, folder, stream);
                             }
                         }
                         else
@@ -72,10 +72,10 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                     }
                     else
                     {
-                        using (var stream = template.Connector.GetFileStream(file.Src))
+                        using (var stream = GetFileStream(template, file))
                         {
                             scope.LogDebug(CoreResources.Provisioning_ObjectHandlers_Files_Uploading_file__0_, file.Src);
-                            targetFile = folder.UploadFile(template.Connector.GetFilenamePart(file.Src), stream, file.Overwrite);
+                            targetFile = UploadFile(template, file, folder, stream);
                         }
 
                         checkedOut = CheckOutIfNeeded(web, targetFile);
@@ -194,99 +194,91 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 {
                     var propertyName = kvp.Key;
                     var propertyValue = kvp.Value;
+                    
+                    var targetField = parentList.Fields.GetByInternalNameOrTitle(propertyName);
+                    targetField.EnsureProperties(f => f.TypeAsString, f => f.ReadOnlyField);
 
-                    try
+                    // Changed by PaoloPia because there are fields like PublishingPageLayout
+                    // which are marked as read-only, but have to be overwritten while uploading
+                    // a publishing page file and which in reality can still be written
+                    if (!targetField.ReadOnlyField || WriteableReadOnlyFields.Contains(propertyName.ToLower())) 
                     {
-                        var targetField = parentList.Fields.GetByInternalNameOrTitle(propertyName);
-                        targetField.EnsureProperties(f => f.TypeAsString, f => f.ReadOnlyField);
-
-                        // Changed by PaoloPia because there are fields like PublishingPageLayout
-                        // which are marked as read-only, but have to be overwritten while uploading
-                        // a publishing page file and which in reality can still be written
-                        if (!targetField.ReadOnlyField || WriteableReadOnlyFields.Contains(propertyName.ToLower()))
+                        switch (propertyName.ToUpperInvariant())
                         {
-                            switch (propertyName.ToUpperInvariant())
-                            {
-                                case "CONTENTTYPE":
-                                    {
-                                        Microsoft.SharePoint.Client.ContentType targetCT = parentList.GetContentTypeByName(propertyValue);
-                                        context.ExecuteQueryRetry();
+                            case "CONTENTTYPE":
+                                {
+                                    Microsoft.SharePoint.Client.ContentType targetCT = parentList.GetContentTypeByName(propertyValue);
+                                    context.ExecuteQueryRetry();
 
-                                        if (targetCT != null)
-                                        {
-                                            file.ListItemAllFields["ContentTypeId"] = targetCT.StringId;
-                                        }
-                                        else
-                                        {
-                                            Log.Error(Constants.LOGGING_SOURCE, "Content Type {0} does not exist in target list!", propertyValue);
-                                        }
-                                        break;
-                                    }
-                                default:
+                                    if (targetCT != null)
                                     {
-                                        switch (targetField.TypeAsString)
-                                        {
-                                            case "User":
-                                                var user = parentList.ParentWeb.EnsureUser(propertyValue);
-                                                context.Load(user);
-                                                context.ExecuteQueryRetry();
-
-                                                if (user != null)
-                                                {
-                                                    var userValue = new FieldUserValue
-                                                    {
-                                                        LookupId = user.Id,
-                                                    };
-                                                    file.ListItemAllFields[propertyName] = userValue;
-                                                }
-                                                break;
-                                            case "URL":
-                                                var urlArray = propertyValue.Split(',');
-                                                var linkValue = new FieldUrlValue();
-                                                if (urlArray.Length == 2)
-                                                {
-                                                    linkValue.Url = urlArray[0];
-                                                    linkValue.Description = urlArray[1];
-                                                }
-                                                else
-                                                {
-                                                    linkValue.Url = urlArray[0];
-                                                    linkValue.Description = urlArray[0];
-                                                }
-                                                file.ListItemAllFields[propertyName] = linkValue;
-                                                break;
-                                            case "MultiChoice":
-                                                var multiChoice = JsonUtility.Deserialize<String[]>(propertyValue);
-                                                file.ListItemAllFields[propertyName] = multiChoice;
-                                                break;
-                                            case "LookupMulti":
-                                                var lookupMultiValue = JsonUtility.Deserialize<FieldLookupValue[]>(propertyValue);
-                                                file.ListItemAllFields[propertyName] = lookupMultiValue;
-                                                break;
-                                            case "TaxonomyFieldType":
-                                                var taxonomyValue = JsonUtility.Deserialize<TaxonomyFieldValue>(propertyValue);
-                                                file.ListItemAllFields[propertyName] = taxonomyValue;
-                                                break;
-                                            case "TaxonomyFieldTypeMulti":
-                                                var taxonomyValueArray = JsonUtility.Deserialize<TaxonomyFieldValue[]>(propertyValue);
-                                                file.ListItemAllFields[propertyName] = taxonomyValueArray;
-                                                break;
-                                            default:
-                                                file.ListItemAllFields[propertyName] = propertyValue;
-                                                break;
-                                        }
-                                        break;
+                                        file.ListItemAllFields["ContentTypeId"] = targetCT.StringId;
                                     }
-                            }
+                                    else
+                                    {
+                                        Log.Error(Constants.LOGGING_SOURCE, "Content Type {0} does not exist in target list!", propertyValue);
+                                    }
+                                    break;
+                                }
+                            default:
+                                {
+                                    switch (targetField.TypeAsString)
+                                    {
+                                        case "User":
+                                            var user = parentList.ParentWeb.EnsureUser(propertyValue);
+                                            context.Load(user);
+                                            context.ExecuteQueryRetry();
+
+                                            if (user != null)
+                                            {
+                                                var userValue = new FieldUserValue
+                                                {
+                                                    LookupId = user.Id,
+                                                };
+                                                file.ListItemAllFields[propertyName] = userValue;
+                                            }
+                                            break;
+                                        case "URL":
+                                            var urlArray = propertyValue.Split(',');
+                                            var linkValue = new FieldUrlValue();
+                                            if (urlArray.Length == 2)
+                                            {
+                                                linkValue.Url = urlArray[0];
+                                                linkValue.Description = urlArray[1];
+                                            }
+                                            else
+                                            {
+                                                linkValue.Url = urlArray[0];
+                                                linkValue.Description = urlArray[0];
+                                            }
+                                            file.ListItemAllFields[propertyName] = linkValue;
+                                            break;
+                                        case "MultiChoice":
+                                            var multiChoice = JsonUtility.Deserialize<String[]>(propertyValue);
+                                            file.ListItemAllFields[propertyName] = multiChoice;
+                                            break;
+                                        case "LookupMulti":
+                                            var lookupMultiValue = JsonUtility.Deserialize<FieldLookupValue[]>(propertyValue);
+                                            file.ListItemAllFields[propertyName] = lookupMultiValue;
+                                            break;
+                                        case "TaxonomyFieldType":
+                                            var taxonomyValue = JsonUtility.Deserialize<TaxonomyFieldValue>(propertyValue);
+                                            file.ListItemAllFields[propertyName] = taxonomyValue;
+                                            break;
+                                        case "TaxonomyFieldTypeMulti":
+                                            var taxonomyValueArray = JsonUtility.Deserialize<TaxonomyFieldValue[]>(propertyValue);
+                                            file.ListItemAllFields[propertyName] = taxonomyValueArray;
+                                            break;
+                                        default:
+                                            file.ListItemAllFields[propertyName] = propertyValue;
+                                            break;
+                                    }
+                                    break;
+                                }
                         }
-                        file.ListItemAllFields.Update();
-                        context.ExecuteQueryRetry();
-
                     }
-                    catch (Exception ex)
-                    {
-                        throw new ObjectException(string.Format("The property '{0}' with value '{1}' can't be stored. Please see inner exception for details.", propertyName, propertyValue), ex);
-                    }
+                    file.ListItemAllFields.Update();
+                    context.ExecuteQueryRetry();
                 }
             }
         }
@@ -335,5 +327,38 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             return _willExtract.Value;
         }
 
+        private static File UploadFile(ProvisioningTemplate template, Model.File file, Microsoft.SharePoint.Client.Folder folder, Stream stream)
+        {
+            File targetFile = null;
+            var fileName = template.Connector.GetFilenamePart(file.Src);
+            try
+            {
+                targetFile = folder.UploadFile(fileName, stream, file.Overwrite);
+            }
+            catch (Exception)
+            {
+                //The file name might contain encoded characters that prevent upload. Decode it and try again.
+                fileName = WebUtility.UrlDecode(fileName);
+                targetFile = folder.UploadFile(fileName, stream, file.Overwrite);
+            }
+            return targetFile;
+        }
+
+        /// <summary>
+        /// Retrieves <see cref="Stream"/> from connector. If the file name contains special characters (e.g. "%20") and cannot be retrieved, a workaround will be performed
+        /// </summary>
+        private static Stream GetFileStream(ProvisioningTemplate template, Model.File file)
+        {
+            var fileName = file.Src;
+            var stream = template.Connector.GetFileStream(fileName);
+            if (stream == null)
+            {
+                //Decode the URL and try again
+                fileName = WebUtility.UrlDecode(fileName);
+                stream = template.Connector.GetFileStream(fileName);
+            }
+
+            return stream;
+        }
     }
 }
