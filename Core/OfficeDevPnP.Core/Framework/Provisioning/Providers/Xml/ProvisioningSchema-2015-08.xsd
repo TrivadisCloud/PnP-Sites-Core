@@ -3220,6 +3220,13 @@
         </xsd:documentation>
       </xsd:annotation>
     </xsd:attribute>
+    <xsd:attribute name="Template" type="pnp:ReplaceableString" use="optional">
+      <xsd:annotation>
+        <xsd:documentation>
+          Teh template ID of this Site Collection
+        </xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
   </xsd:attributeGroup>
 
   <xsd:complexType name="TermStore" >

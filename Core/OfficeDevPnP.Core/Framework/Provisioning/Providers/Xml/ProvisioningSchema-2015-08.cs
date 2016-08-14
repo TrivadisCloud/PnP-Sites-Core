@@ -783,7 +783,9 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml.V201508 {
         private string alternateCssUrlField;
         
         private string languageField;
-        
+
+        private string templateField;
+
         private bool allowDesignerField;
         
         private bool allowDesignerFieldSpecified;
@@ -873,6 +875,17 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml.V201508 {
             }
             set {
                 this.languageField = value;
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string Template {
+            get {
+                return this.templateField;
+            }
+            set {
+                this.templateField = value;
             }
         }
         
@@ -5559,9 +5572,11 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml.V201508 {
         private string userCodeWarningLevelField;
         
         private string primarySiteCollectionAdminField;
-        
+
         private string secondarySiteCollectionAdminField;
-        
+
+        private string templateField;
+
         private string titleField;
         
         private string customJSUrlField;
@@ -5659,6 +5674,17 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.Providers.Xml.V201508 {
             }
             set {
                 this.secondarySiteCollectionAdminField = value;
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string Template {
+            get {
+                return this.templateField;
+            }
+            set {
+                this.templateField = value;
             }
         }
         
