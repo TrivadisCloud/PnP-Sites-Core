@@ -846,6 +846,9 @@
   <data name="SiteToTemplateConversion_IncludeAllTermGroups_is_set_to_true" xml:space="preserve">
     <value>IncludeAllTermGroups is set to true</value>
   </data>
+  <data name="SiteToTemplateConversion_IncludeAllPages_is_set_to_true" xml:space="preserve">
+    <value>IncludeAllPages is set to true</value>
+  </data>
   <data name="SiteToTemplateConversion_IncludeSiteCollectionTermGroup_is_set_to_true" xml:space="preserve">
     <value>IncludeSiteCollectionTermGroup is set to true</value>
   </data>

@@ -14,6 +14,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
         private bool persistMultiLanguageResourceFiles = false;
         private string resourceFilePrefix = "PnP_Resources";
         private bool includeAllTermGroups = false;
+        private bool includeAllPages = false;
         private bool includeSiteCollectionTermGroup = false;
         private bool includeSiteGroups = false;
         private bool includeSearchConfiguration = false;
@@ -147,7 +148,7 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 this.includeNativePublishingFiles = value;
             }
         }
-        
+
         public bool IncludeAllTermGroups
         {
             get
@@ -155,6 +156,15 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
                 return this.includeAllTermGroups;
             }
             set { this.includeAllTermGroups = value; }
+        }
+
+        public bool IncludeAllPages
+        {
+            get
+            {
+                return this.includeAllPages;
+            }
+            set { this.includeAllPages = value; }
         }
 
         public bool IncludeSiteCollectionTermGroup

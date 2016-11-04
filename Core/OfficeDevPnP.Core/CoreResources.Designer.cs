@@ -1716,6 +1716,15 @@ namespace OfficeDevPnP.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to IncludeAllPages is set to true.
+        /// </summary>
+        internal static string SiteToTemplateConversion_IncludeAllPages_is_set_to_true {
+            get {
+                return ResourceManager.GetString("SiteToTemplateConversion_IncludeAllPages_is_set_to_true", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to IncludeAllTermGroups is set to true.
         /// </summary>
         internal static string SiteToTemplateConversion_IncludeAllTermGroups_is_set_to_true {

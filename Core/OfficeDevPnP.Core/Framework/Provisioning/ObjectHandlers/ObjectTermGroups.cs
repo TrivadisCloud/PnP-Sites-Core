@@ -5,6 +5,7 @@ using Microsoft.SharePoint.Client;
 using Microsoft.SharePoint.Client.Taxonomy;
 using OfficeDevPnP.Core.Diagnostics;
 using OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers.TokenDefinitions;
+using System.Threading;
 
 namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
 {
@@ -21,159 +22,174 @@ namespace OfficeDevPnP.Core.Framework.Provisioning.ObjectHandlers
             {
                 TaxonomySession taxSession = TaxonomySession.GetTaxonomySession(web.Context);
 
-                var termStore = taxSession.GetDefaultKeywordsTermStore();
-
-                web.Context.Load(termStore,
-                    ts => ts.DefaultLanguage,
-                    ts => ts.Groups.Include(
-                        tg => tg.Name,
-                        tg => tg.Id,
-                        tg => tg.TermSets.Include(
-                            tset => tset.Name,
-                            tset => tset.Id)));
-                web.Context.ExecuteQueryRetry();
-
-                foreach (var modelTermGroup in template.TermGroups)
+                var retryCount = 0;
+                while (true)
                 {
-                    #region Group
-
-                    var newGroup = false;
-
-                    TermGroup group = termStore.Groups.FirstOrDefault(
-                        g => g.Id == modelTermGroup.Id || g.Name == modelTermGroup.Name);
-                    if (group == null)
+                    try
                     {
-                        if (modelTermGroup.Name == "Site Collection")
-                        {
-                            var site = (web.Context as ClientContext).Site;
-                            group = termStore.GetSiteCollectionGroup(site, true);
-                            web.Context.Load(group, g => g.Name, g => g.Id, g => g.TermSets.Include(
-                                tset => tset.Name,
-                                tset => tset.Id));
-                            web.Context.ExecuteQueryRetry();
-                        }
-                        else
-                        {
-                            var parsedGroupName = parser.ParseString(modelTermGroup.Name);
-                            group = termStore.Groups.FirstOrDefault(g => g.Name == parsedGroupName);
+                        var termStore = taxSession.GetDefaultKeywordsTermStore();
 
+                        web.Context.Load(termStore,
+                            ts => ts.DefaultLanguage,
+                            ts => ts.Groups.Include(
+                                tg => tg.Name,
+                                tg => tg.Id,
+                                tg => tg.TermSets.Include(
+                                    tset => tset.Name,
+                                    tset => tset.Id)));
+                        web.Context.ExecuteQueryRetry();
+
+                        foreach (var modelTermGroup in template.TermGroups)
+                        {
+                            #region Group
+
+                            var newGroup = false;
+
+                            TermGroup group = termStore.Groups.FirstOrDefault(
+                                g => g.Id == modelTermGroup.Id || g.Name == modelTermGroup.Name);
                             if (group == null)
                             {
-                                if (modelTermGroup.Id == Guid.Empty)
+                                if (modelTermGroup.Name == "Site Collection")
                                 {
-                                    modelTermGroup.Id = Guid.NewGuid();
+                                    var site = (web.Context as ClientContext).Site;
+                                    group = termStore.GetSiteCollectionGroup(site, true);
+                                    web.Context.Load(group, g => g.Name, g => g.Id, g => g.TermSets.Include(
+                                        tset => tset.Name,
+                                        tset => tset.Id));
+                                    web.Context.ExecuteQueryRetry();
                                 }
-                                group = termStore.CreateGroup(parsedGroupName, modelTermGroup.Id);
-
-                                group.Description = modelTermGroup.Description;
-
-                                termStore.CommitAll();
-                                web.Context.Load(group);
-                                web.Context.ExecuteQueryRetry();
-
-                                newGroup = true;
-
-                            }
-                        }
-                    }
-
-                    #endregion
-
-                    #region TermSets
-
-                    foreach (var modelTermSet in modelTermGroup.TermSets)
-                    {
-                        TermSet set = null;
-                        var newTermSet = false;
-                        if (!newGroup)
-                        {
-                            set = group.TermSets.FirstOrDefault(ts => ts.Id == modelTermSet.Id || ts.Name == modelTermSet.Name);
-                        }
-                        if (set == null)
-                        {
-                            if (modelTermSet.Id == Guid.Empty)
-                            {
-                                modelTermSet.Id = Guid.NewGuid();
-                            }
-                            set = group.CreateTermSet(parser.ParseString(modelTermSet.Name), modelTermSet.Id, modelTermSet.Language ?? termStore.DefaultLanguage);
-                            parser.AddToken(new TermSetIdToken(web, modelTermGroup.Name, modelTermSet.Name, modelTermSet.Id));
-                            newTermSet = true;
-                            set.IsOpenForTermCreation = modelTermSet.IsOpenForTermCreation;
-                            set.IsAvailableForTagging = modelTermSet.IsAvailableForTagging;
-                            foreach (var property in modelTermSet.Properties)
-                            {
-                                set.SetCustomProperty(property.Key, property.Value);
-                            }
-                            if (modelTermSet.Owner != null)
-                            {
-                                set.Owner = modelTermSet.Owner;
-                            }
-                            termStore.CommitAll();
-                            web.Context.Load(set);
-                            web.Context.ExecuteQueryRetry();
-                        }
-
-                        web.Context.Load(set, s => s.Terms.Include(t => t.Id, t => t.Name));
-                        web.Context.ExecuteQueryRetry();
-                        var terms = set.Terms;
-
-                        foreach (var modelTerm in modelTermSet.Terms)
-                        {
-                            if (!newTermSet)
-                            {
-                                if (terms.Any())
+                                else
                                 {
-                                    var term = terms.FirstOrDefault(t => t.Id == modelTerm.Id);
-                                    if (term == null)
+                                    var parsedGroupName = parser.ParseString(modelTermGroup.Name);
+                                    group = termStore.Groups.FirstOrDefault(g => g.Name == parsedGroupName);
+
+                                    if (group == null)
                                     {
-                                        term = terms.FirstOrDefault(t => t.Name == modelTerm.Name);
-                                        if (term == null)
+                                        if (modelTermGroup.Id == Guid.Empty)
+                                        {
+                                            modelTermGroup.Id = Guid.NewGuid();
+                                        }
+                                        group = termStore.CreateGroup(parsedGroupName, modelTermGroup.Id);
+
+                                        group.Description = modelTermGroup.Description;
+
+                                        termStore.CommitAll();
+                                        web.Context.Load(group);
+                                        web.Context.ExecuteQueryRetry();
+
+                                        newGroup = true;
+
+                                    }
+                                }
+                            }
+
+                            #endregion
+
+                            #region TermSets
+
+                            foreach (var modelTermSet in modelTermGroup.TermSets)
+                            {
+                                TermSet set = null;
+                                var newTermSet = false;
+                                if (!newGroup)
+                                {
+                                    set = group.TermSets.FirstOrDefault(ts => ts.Id == modelTermSet.Id || ts.Name == modelTermSet.Name);
+                                }
+                                if (set == null)
+                                {
+                                    if (modelTermSet.Id == Guid.Empty)
+                                    {
+                                        modelTermSet.Id = Guid.NewGuid();
+                                    }
+                                    set = group.CreateTermSet(parser.ParseString(modelTermSet.Name), modelTermSet.Id, modelTermSet.Language ?? termStore.DefaultLanguage);
+                                    parser.AddToken(new TermSetIdToken(web, modelTermGroup.Name, modelTermSet.Name, modelTermSet.Id));
+                                    newTermSet = true;
+                                    set.IsOpenForTermCreation = modelTermSet.IsOpenForTermCreation;
+                                    set.IsAvailableForTagging = modelTermSet.IsAvailableForTagging;
+                                    foreach (var property in modelTermSet.Properties)
+                                    {
+                                        set.SetCustomProperty(property.Key, property.Value);
+                                    }
+                                    if (modelTermSet.Owner != null)
+                                    {
+                                        set.Owner = modelTermSet.Owner;
+                                    }
+                                    termStore.CommitAll();
+                                    web.Context.Load(set);
+                                    web.Context.ExecuteQueryRetry();
+                                }
+
+                                web.Context.Load(set, s => s.Terms.Include(t => t.Id, t => t.Name));
+                                web.Context.ExecuteQueryRetry();
+                                var terms = set.Terms;
+
+                                foreach (var modelTerm in modelTermSet.Terms)
+                                {
+                                    if (!newTermSet)
+                                    {
+                                        if (terms.Any())
+                                        {
+                                            var term = terms.FirstOrDefault(t => t.Id == modelTerm.Id);
+                                            if (term == null)
+                                            {
+                                                term = terms.FirstOrDefault(t => t.Name == modelTerm.Name);
+                                                if (term == null)
+                                                {
+                                                    var returnTuple = CreateTerm<TermSet>(web, modelTerm, set, termStore, parser, scope);
+                                                    modelTerm.Id = returnTuple.Item1;
+                                                    parser = returnTuple.Item2;
+                                                }
+                                                else
+                                                {
+                                                    modelTerm.Id = term.Id;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                modelTerm.Id = term.Id;
+                                            }
+                                        }
+                                        else
                                         {
                                             var returnTuple = CreateTerm<TermSet>(web, modelTerm, set, termStore, parser, scope);
                                             modelTerm.Id = returnTuple.Item1;
                                             parser = returnTuple.Item2;
                                         }
-                                        else
-                                        {
-                                            modelTerm.Id = term.Id;
-                                        }
                                     }
                                     else
                                     {
-                                        modelTerm.Id = term.Id;
+                                        var returnTuple = CreateTerm<TermSet>(web, modelTerm, set, termStore, parser, scope);
+                                        modelTerm.Id = returnTuple.Item1;
+                                        parser = returnTuple.Item2;
                                     }
                                 }
-                                else
+
+                                // do we need custom sorting?
+                                if (modelTermSet.Terms.Any(t => t.CustomSortOrder > -1))
                                 {
-                                    var returnTuple = CreateTerm<TermSet>(web, modelTerm, set, termStore, parser, scope);
-                                    modelTerm.Id = returnTuple.Item1;
-                                    parser = returnTuple.Item2;
+                                    var sortedTerms = modelTermSet.Terms.OrderBy(t => t.CustomSortOrder);
+
+                                    var customSortString = sortedTerms.Aggregate(string.Empty, (a, i) => a + i.Id.ToString() + ":");
+                                    customSortString = customSortString.TrimEnd(new[] { ':' });
+
+                                    set.CustomSortOrder = customSortString;
+                                    termStore.CommitAll();
+                                    web.Context.ExecuteQueryRetry();
                                 }
                             }
-                            else
-                            {
-                                var returnTuple = CreateTerm<TermSet>(web, modelTerm, set, termStore, parser, scope);
-                                modelTerm.Id = returnTuple.Item1;
-                                parser = returnTuple.Item2;
-                            }
+
+                            #endregion
+
                         }
 
-                        // do we need custom sorting?
-                        if (modelTermSet.Terms.Any(t => t.CustomSortOrder > -1))
-                        {
-                            var sortedTerms = modelTermSet.Terms.OrderBy(t => t.CustomSortOrder);
-
-                            var customSortString = sortedTerms.Aggregate(string.Empty, (a, i) => a + i.Id.ToString() + ":");
-                            customSortString = customSortString.TrimEnd(new[] { ':' });
-
-                            set.CustomSortOrder = customSortString;
-                            termStore.CommitAll();
-                            web.Context.ExecuteQueryRetry();
-                        }
+                        break;
                     }
-
-                    #endregion
-
+                    catch (Exception)
+                    {
+                        retryCount++;
+                        if (retryCount > 2) throw;
+                        Thread.Sleep(5000);
+                    }
                 }
             }
             return parser;
